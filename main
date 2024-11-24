@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Sample App</title>
+        <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+        <link rel="stylesheet" href="style.css">
+    </head>
+    <body ng-app="myapp" ng-controller="control">
+        <center><h1>BOOKSTORE APPLICATION</h1></center><br><br>
+        <center><form ng-submit="additem()">
+            <label>Book Name:</label>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+            <input type="text" ng-model="newitem.name" placeholder="Enter a book name" required><br>
+            <label>Author:</label>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+            <input type="text" ng-model="newitem.author" placeholder="Enter an author name" required><br>
+            <label>Price:</label>
+            <input type="number" ng-model="newitem.price" placeholder="Enter price" required>
+            <button type="submit">Add Item</button>
+        </form></center>
+        
+        <center>
+            <label>Search by Author:</label>
+            <input type="text" ng-model="search.author" placeholder="Search for an author">
+        </center>
+        
+        <ul>
+            <li ng-repeat="i in items">
+                BOOK NAME: {{i.name}} - AUTHOR: {{i.author}} - PRICE: {{i.price | currency}}
+                <button ng-click="removeitem(i._id)">Remove Item</button>
+            </li>
+        </ul>
+        <h3>totalprice{{totalprice}}</h3>
+        <label>descption</label>
+        <textarea></textarea>
+        <label>email</label>
+        <input type="email" >
+        <input  type="text" ng-model="search">
