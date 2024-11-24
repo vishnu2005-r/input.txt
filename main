@@ -1,36 +1,473 @@
+service and mongo code
+index.html
 <!DOCTYPE html>
 <html>
     <head>
-        <title>Sample App</title>
+        <title>Shopping Cloth</title>
         <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
-        <link rel="stylesheet" href="style.css">
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                background-color: #f0f8ff;
+                color: #333;
+                margin: 0;
+                padding: 0;
+            }
+            h1 {
+                background-color: #4CAF50;
+                color: white;
+                padding: 10px;
+                text-align: center;
+                font-size: 2em;
+                margin: 0;
+            }
+            form {
+                max-width: 500px;
+                margin: 20px auto;
+                padding: 20px;
+                background-color: white;
+                border-radius: 5px;
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            }
+            input[type="text"], input[type="number"] {
+                width: calc(100% - 20px);
+                padding: 10px;
+                margin: 10px 0;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                font-size: 1em;
+            }
+            button {
+                background-color: #4CAF50;
+                color: white;
+                padding: 10px 20px;
+                border: none;
+                border-radius: 5px;
+                font-size: 1.2em;
+                cursor: pointer;
+                transition: background-color 0.3s;
+            }
+            button:hover {
+                background-color: #45a049;
+            }
+            ul {
+                list-style-type: none;
+                padding: 0;
+                margin: 20px auto;
+                width: 90%;
+                max-width: 600px;
+            }
+            li {
+                background-color: #fff;
+                padding: 15px;
+                margin: 10px 0;
+                border-radius: 5px;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            li button {
+                background-color: #e74c3c;
+            }
+            li button:hover {
+                background-color: #c0392b;
+            }
+            .content {
+                padding: 10px;
+                text-align: center;
+            }
+        </style>
     </head>
     <body ng-app="myapp" ng-controller="control">
-        <center><h1>BOOKSTORE APPLICATION</h1></center><br><br>
-        <center><form ng-submit="additem()">
-            <label>Book Name:</label>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-            <input type="text" ng-model="newitem.name" placeholder="Enter a book name" required><br>
-            <label>Author:</label>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-            <input type="text" ng-model="newitem.author" placeholder="Enter an author name" required><br>
-            <label>Price:</label>
-            <input type="number" ng-model="newitem.price" placeholder="Enter price" required>
+        <div class="content">
+            <h1>Shopping Management</h1>
+            <form ng-submit="addcloth()">
+                <input type="text" ng-model="newitem.name" placeholder="Enter a product" required>
+                <input type="number" ng-model="newitem.price" placeholder="Enter a price" required>
+                <button type="submit">Add Item</button>
+            </form>
+
+            <p>Cloth List:</p>
+            <ul>
+                <li ng-repeat="value in cloths">
+                    <span>NAME: {{value.name}} - PRICE: {{value.price | currency}}</span>
+                    <button ng-click="removecloth(value._id)">Remove</button>
+                </li>
+            </ul>
+        </div>
+
+        <script>
+            var app = angular.module('myapp', []);
+            app.controller('control', function($http, $scope) {
+                $scope.cloths = [];
+                $scope.newitem = {};
+                $scope.namess = "vishnu";
+
+                // Fetch all cloth items
+                $scope.getadd = function() {
+                    $http.get('http://localhost:3000/cloths')
+                        .then(function(response) {
+                            $scope.cloths = response.data;
+                        });
+                };
+
+                // Add a new cloth item
+                $scope.addcloth = function() {
+                    $http.post('http://localhost:3000/cloths', $scope.newitem)
+                        .then(function() {
+                            $scope.getadd();
+                            $scope.newitem = {}; // Clear the form after adding
+                        });
+                };
+
+                // Remove a cloth item from the list
+                $scope.removecloth = function(id) {
+                    $http.delete('http://localhost:3000/cloths/' + id)
+                        .then(function() {
+                            $scope.getadd();
+                        });
+                };
+
+                // Initial fetch of items
+                $scope.getadd();
+            });
+        </script>
+    </body>
+</html>
+
+server.js
+
+const express = require('express');
+const bodyParser = require('body-parser');
+const mongoose = require('mongoose');
+const cors = require('cors');
+
+const app = express();
+const PORT = 3000;
+
+app.use(cors());
+app.use(bodyParser.json());
+
+
+mongoose.connect('mongodb://localhost:27017/sarvesh', {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+});
+const clothSchema = new mongoose.Schema({
+    name: String,
+    price: Number
+});
+
+const ClothItem = mongoose.model('varan', clothSchema);
+
+// Create a new clothing item
+app.post('/cloths', (req, res) => {
+    const newItem = new ClothItem(req.body);
+    newItem.save()
+});
+
+// Read all clothing items
+app.get('/cloths', (req, res) => {
+    ClothItem.find()
+        .then(items => res.json(items)) // Respond with all items
+        .catch(err => res.status(500).json({ error: err.message })); // Handle errors
+});
+
+// Update a clothing item
+app.put('/cloths/:id', (req, res) => {
+    ClothItem.findByIdAndUpdate(req.params.id, req.body, { new: true })
+        .then(item => res.json(item))
+        .catch(err => res.status(400).json({ error: err.message })); // Handle errors
+});
+
+// Delete a clothing item
+app.delete('/cloths/:id', (req, res) => {
+    ClothItem.findByIdAndDelete(req.params.id)
+        .then(() => res.json('Item deleted.'))
+        .catch(err => res.status(400).json({ error: err.message })); // Handle errors
+});
+
+// Start the server
+app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+});
+
+.....................................
+customer service and  mongo
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Shopping Cloth</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+</head>
+<body ng-app="myapp" ng-controller="control">
+    <center><h1>Shopping Management</h1></center>
+    <form ng-submit="addcloth()">
+        <input type="text" ng-model="newitem.name" placeholder="Enter a product" required>
+        <input type="number" ng-model="newitem.price" placeholder="Enter a price" required>
+        <button type="submit">Add Item</button>
+        <input type="text" ng-model="namess" placeholder="Enter a name">
+        <p>{{namess}}</p>
+    </form>
+    <p>Cloth List:</p>
+    <ul>
+        <li ng-repeat="value in cloths">
+            NAME: {{value.name}} - PRICE: {{value.price | currency}} 
+            <button ng-click="removecloth(value._id)">Remove</button>
+        </li>
+    </ul>
+
+    <script>
+        var app = angular.module('myapp', []);
+
+        // Custom service for cloth items
+        app.service('ClothService', function($http) {
+            this.getCloths = function() {
+                return $http.get('http://localhost:3000/cloths');
+            };
+
+            this.addCloth = function(newitem) {
+                return $http.post('http://localhost:3000/cloths', newitem);
+            };
+
+            this.removeCloth = function(id) {
+                return $http.delete('http://localhost:3000/cloths/' + id);
+            };
+        });
+
+        // Controller using $scope
+        app.controller('control', function(ClothService, $scope) {
+            $scope.cloths = [];
+            $scope.newitem = {};
+            $scope.namess = "vishnu";
+
+            // Fetch all cloth items
+            $scope.getadd = function() {
+                ClothService.getCloths().then(function(response) {
+                    $scope.cloths = response.data;
+                });
+            };
+
+            // Add a new cloth item
+            $scope.addcloth = function() {
+                ClothService.addCloth($scope.newitem).then(function() {
+                    $scope.getadd();
+                    $scope.newitem = {};
+                });
+            };
+
+            // Remove a cloth item
+            $scope.removecloth = function(id) {
+                ClothService.removeCloth(id).then(function() {
+                    $scope.getadd();
+                });
+            };
+
+            // Initial fetch
+            $scope.getadd();
+        });
+    </script>
+</body>
+</html>
+.........................................................
+
+service and factory
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopping Cart</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+</head>
+<body ng-app="shoppingApp" ng-controller="cartController">
+    <center>
+        <h1>Shopping Cart</h1>
+        <form ng-submit="addItem()">
+            <input type="text" ng-model="newItem.name" placeholder="Enter item name" required>
+            <input type="number" ng-model="newItem.price" placeholder="Enter price" required>
             <button type="submit">Add Item</button>
-        </form></center>
-        
-        <center>
-            <label>Search by Author:</label>
-            <input type="text" ng-model="search.author" placeholder="Search for an author">
-        </center>
-        
+        </form>
+        <h2>Items in Cart:</h2>
         <ul>
-            <li ng-repeat="i in items">
-                BOOK NAME: {{i.name}} - AUTHOR: {{i.author}} - PRICE: {{i.price | currency}}
-                <button ng-click="removeitem(i._id)">Remove Item</button>
+            <li ng-repeat="item in cartItems">
+                {{item.name}} - {{item.price | currency}}
+                <button ng-click="removeItem(item._id)">Remove</button>
             </li>
         </ul>
-        <h3>totalprice{{totalprice}}</h3>
-        <label>descption</label>
-        <textarea></textarea>
-        <label>email</label>
-        <input type="email" >
-        <input  type="text" ng-model="search">
+        <h3>Total Price: {{totalPrice | currency}}</h3>
+    </center>
+
+    <script>
+        var app = angular.module('shoppingApp', []);
+
+        app.factory('CartFactory', function($http) {
+            var factory = {};
+
+            factory.getItems = function() {
+                return $http.get('http://localhost:3000/cloths');
+            };
+
+            factory.addItem = function(newItem) {
+                return $http.post('http://localhost:3000/cloths', newItem);
+            };
+
+            factory.removeItem = function(id) {
+                return $http.delete('http://localhost:3000/cloths/' + id);
+            };
+
+            return factory;
+        });
+
+        app.service('CartService', function() {
+            this.calculateTotal = function(items) {
+                let total = 0;
+                items.forEach(item => {
+                    total += item.price;
+                });
+                return total;
+            };
+        });
+
+        app.controller('cartController', function($scope, CartFactory, CartService) {
+            $scope.cartItems = [];
+            $scope.newItem = {};
+            $scope.totalPrice = 0;
+            $scope.getItems = function() {
+                CartFactory.getItems().then(function(response) {
+                    $scope.cartItems = response.data;
+                    $scope.totalPrice = CartService.calculateTotal($scope.cartItems); 
+                });
+            };
+
+            $scope.addItem = function() {
+                CartFactory.addItem($scope.newItem).then(function() {
+                    $scope.getItems();  
+                    $scope.newItem = {}; 
+                });
+            };
+            $scope.removeItem = function(id) {
+                CartFactory.removeItem(id).then(function() {
+                    $scope.getItems(); 
+                });
+            };
+            $scope.getItems();
+        });
+    </script>
+</body>
+</html>
+
+..........................................................
+xslt code
+
+movie.xml
+
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="movieee.xsl"?>
+<vidio>
+    <author>
+        <title>movie1</title>
+        <director>director1</director>
+        <price>5678</price>
+        <release_date>2022-05-01</release_date>
+        <rating>4.5</rating>
+    </author>
+    <author>
+        <title>movie2</title>
+        <director>director2</director>
+        <price>6789</price>
+        <release_date>2021-07-15</release_date>
+        <rating>4.0</rating>
+    </author>
+    <author>
+        <title>movie3</title>
+        <director>director3</director>
+        <price>7890</price>
+        <release_date>2023-01-20</release_date>
+        <rating>4.8</rating>
+    </author>
+</vidio>
+
+moviee.xsl
+
+<?xml version="1.0" encoding="UTF-8"?>
+<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+<xsl:template match="/">
+
+<html>
+    <body>
+        <h2>Movie List</h2>
+        <table border="6">
+            <tr>
+                <th>TITLE</th>
+                <th>DIRECTOR</th>
+                <th>PRICE</th>
+                <th>RELEASE DATE</th>
+                <th>RATING</th>
+            </tr>
+            <xsl:for-each select="vidio/author">
+                <tr>
+                    <td><xsl:value-of select="title"/></td>
+                    <td><xsl:value-of select="director"/></td>
+                    <td><xsl:value-of select="price"/></td>
+                    <td><xsl:value-of select="release_date"/></td>
+                    <td><xsl:value-of select="rating"/></td>
+                </tr>
+            </xsl:for-each>
+        </table>
+    </body>
+</html>
+
+</xsl:template>
+</xsl:stylesheet>
+
+to run---python -m http.server 8000
+..................................
+xml-dtd
+
+library.dtd
+
+<!ELEMENT library (book+)>
+<!ELEMENT book (title, author, year, genre)>
+<!ATTLIST book id ID #REQUIRED>
+  
+<!ELEMENT title (#PCDATA)>
+<!ELEMENT author (#PCDATA)>
+<!ELEMENT year (#PCDATA)>
+<!ELEMENT genre (#PCDATA)>
+
+library.xml
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE library SYSTEM "library.dtd">
+<library>
+    <book id="bk1">
+        <title>To Kill a Mockingbird</title>
+        <author>Harper Lee</author>
+        <year>1960</year>
+        <genre>Fiction</genre>
+    </book>
+    <book id="bk2">
+        <title>1984</title>
+        <author>George Orwell</author>
+        <year>1949</year>
+        <genre>Dystopian</genre>
+    </book>
+    <book id="bk3">
+        <title>Harry Potter and the Sorcerer's Stone</title>
+        <author>J.K. Rowling</author>
+        <year>1997</year>
+        <genre>Fantasy</genre>
+    </book>
+</library>
+
+......................................................
+
+
+
+
+
