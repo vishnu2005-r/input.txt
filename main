@@ -464,8 +464,604 @@ library.xml
         <genre>Fantasy</genre>
     </book>
 </library>
-
 ......................................................
+ecommerse website
+
+input.html
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-Commerce Website</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+    <style>
+        .product { border: 1px solid #ccc; padding: 10px; margin: 10px; width: 200px; display: inline-block; }
+        .order { margin: 10px; }
+        .search-box { margin: 20px 0; }
+    </style>
+</head>
+<body ng-app="ecommerceApp" ng-controller="EcommerceController">
+
+    <h1>E-Commerce Shopping Website</h1>
+
+    <!-- Products Section -->
+    <div>
+        <h2>Products</h2>
+
+        <!-- Search Filter for Products -->
+        <div class="search-box">
+            <input 
+                type="text" 
+                placeholder="Search products by name..." 
+                ng-model="productSearchText"
+            />
+        </div>
+
+        <div class="product" ng-repeat="product in products | filter: productSearchText">
+            <h3>{{ product.name }}</h3>
+            <p>Price: ${{ product.price }}</p>
+            <p>Stock: {{ product.stock }}</p>
+            <button ng-click="orderProduct(product)" ng-disabled="product.stock <= 0">Order</button>
+        </div>
+
+        <!-- No Results for Products -->
+        <p ng-if="products | filter: productSearchText | length === 0">No products found.</p>
+    </div>
+
+    <!-- Orders Section -->
+    <div>
+        <h2>Orders</h2>
+
+        <!-- Search Filter for Orders -->
+        <div class="search-box">
+            <input 
+                type="text" 
+                placeholder="Search orders by product name..." 
+                ng-model="orderSearchText"
+            />
+        </div>
+
+        <div class="order" ng-repeat="order in orders | filter: orderSearchText">
+            <h3>{{ order.productName }}</h3>
+            <p>Quantity: {{ order.quantity }}</p>
+            <p>Total Price: ${{ order.price }}</p>
+            <button ng-click="deleteOrder(order._id)">Delete</button>
+            <button ng-click="updateOrder(order)">Update</button>
+        </div>
+
+        <!-- Total Price of All Orders -->
+        <h3>Total Price of All Orders: ${{ calculateTotalPrice() }}</h3>
+
+        <!-- No Results for Orders -->
+        <p ng-if="orders | filter: orderSearchText | length === 0">No orders found.</p>
+    </div>
+
+    <script>
+        const app = angular.module('ecommerceApp', []);
+
+        // Main Controller
+        app.controller('EcommerceController', ['$scope', '$http', function ($scope, $http) {
+            // Sample Products
+            $scope.products = [
+                { id: '1', name: 'Laptop', price: 1200, stock: 10 },
+                { id: '2', name: 'Smartphone', price: 800, stock: 15 },
+                { id: '3', name: 'Tablet', price: 600, stock: 20 },
+                { id: '4', name: 'Headphones', price: 150, stock: 50 },
+                { id: '5', name: 'Smartwatch', price: 200, stock: 30 },
+            ];
+
+            // Orders
+            $scope.orders = [];
+
+            // Fetch Orders
+            const fetchOrders = function () {
+                $http.get('http://localhost:5000/orders')
+                    .then(response => {
+                        $scope.orders = response.data;
+                    });
+            };
+
+            // Order a Product
+            $scope.orderProduct = function (product) {
+                if (product.stock > 0) {
+                    const order = {
+                        productId: product.id,
+                        productName: product.name,
+                        quantity: 1,
+                        price: product.price,
+                    };
+
+                    $http.post('http://localhost:5000/orders', order)
+                        .then(response => {
+                            alert(response.data.message);
+                            fetchOrders();
+                        });
+
+                    product.stock -= 1; // Reduce stock
+                } else {
+                    alert('Product is out of stock!');
+                }
+            };
+
+            // Delete an Order
+            $scope.deleteOrder = function (orderId) {
+                $http.delete(`http://localhost:5000/orders/${orderId}`)
+                    .then(response => {
+                        alert(response.data.message);
+                        fetchOrders();
+                    });
+            };
+
+            // Update an Order
+            $scope.updateOrder = function (order) {
+                const updatedOrder = {
+                    ...order,
+                    quantity: order.quantity + 1, // Example update: increase quantity
+                    price: order.price + (order.price / order.quantity), // Update price
+                };
+
+                $http.put(`http://localhost:5000/orders/${order._id}`, updatedOrder)
+                    .then(response => {
+                        alert(response.data.message);
+                        fetchOrders();
+                    });
+            };
+
+            // Calculate Total Price of All Orders
+            $scope.calculateTotalPrice = function () {
+                return $scope.orders.reduce((total, order) => total + order.price, 0);
+            };
+
+            // Initialize
+            fetchOrders();
+        }]);
+    </script>
+</body>
+</html>
+
+
+server.js
+
+const express = require('express');
+const mongoose = require('mongoose');
+const bodyParser = require('body-parser');
+const cors = require('cors');
+
+const app = express();
+
+// Middleware
+app.use(cors());
+app.use(bodyParser.json());
+
+// MongoDB Connection
+mongoose.connect('mongodb://localhost:27017/ecommerce', { useNewUrlParser: true, useUnifiedTopology: true })
+    .then(() => console.log('MongoDB connected'))
+    .catch(err => console.log(err));
+
+// Mongoose Schema
+const OrderSchema = new mongoose.Schema({
+    productId: String,
+    productName: String,
+    quantity: Number,
+    price: Number,
+});
+const Order = mongoose.model('Order', OrderSchema);
+
+// Routes
+// Get All Orders
+app.get('/orders', async (req, res) => {
+    const orders = await Order.find();
+    res.json(orders);
+});
+
+// Place an Order
+app.post('/orders', async (req, res) => {
+    const newOrder = new Order(req.body);
+    await newOrder.save();
+    res.json({ message: 'Order placed successfully!' });
+});
+
+// Update an Order
+app.put('/orders/:id', async (req, res) => {
+    const orderId = req.params.id;
+    const updatedData = req.body;
+
+    try {
+        const updatedOrder = await Order.findByIdAndUpdate(orderId, updatedData, { new: true });
+        res.json({ message: 'Order updated successfully!', updatedOrder });
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to update order', error: err.message });
+    }
+});
+
+// Delete an Order
+app.delete('/orders/:id', async (req, res) => {
+    const orderId = req.params.id;
+
+    try {
+        await Order.findByIdAndDelete(orderId);
+        res.json({ message: 'Order deleted successfully!' });
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to delete order', error: err.message });
+    }
+});
+
+// Start Server
+app.listen(5000, () => {
+    console.log('Server running on http://localhost:5000');
+});
+
+.........................
+
+ecommerse factory
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-Commerce Website</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+    <style>
+        .product { border: 1px solid #ccc; padding: 10px; margin: 10px; width: 200px; display: inline-block; }
+        .order { margin: 10px; }
+        .search-box { margin: 20px 0; }
+    </style>
+</head>
+<body ng-app="ecommerceApp" ng-controller="EcommerceController">
+
+    <h1>E-Commerce Shopping Website</h1>
+
+    <!-- Products Section -->
+    <div>
+        <h2>Products</h2>
+
+        <!-- Search Filter for Products -->
+        <div class="search-box">
+            <input 
+                type="text" 
+                placeholder="Search products by name..." 
+                ng-model="productSearchText"
+            />
+        </div>
+
+        <div class="product" ng-repeat="product in products | filter: productSearchText">
+            <h3>{{ product.name }}</h3>
+            <p>Price: ${{ product.price }}</p>
+            <p>Stock: {{ product.stock }}</p>
+            <button ng-click="orderProduct(product)" ng-disabled="product.stock <= 0">Order</button>
+        </div>
+
+        <!-- No Results for Products -->
+        <p ng-if="products | filter: productSearchText | length === 0">No products found.</p>
+    </div>
+
+    <!-- Orders Section -->
+    <div>
+        <h2>Orders</h2>
+
+        <!-- Search Filter for Orders -->
+        <div class="search-box">
+            <input 
+                type="text" 
+                placeholder="Search orders by product name..." 
+                ng-model="orderSearchText"
+            />
+        </div>
+
+        <div class="order" ng-repeat="order in orders | filter: orderSearchText">
+            <h3>{{ order.productName }}</h3>
+            <p>Quantity: {{ order.quantity }}</p>
+            <p>Total Price: ${{ order.price }}</p>
+            <button ng-click="deleteOrder(order._id)">Delete</button>
+            <button ng-click="updateOrder(order)">Update</button>
+        </div>
+
+        <!-- Total Price of All Orders -->
+        <h3>Total Price of All Orders: ${{ totalPrice }}</h3>
+
+        <!-- No Results for Orders -->
+        <p ng-if="orders | filter: orderSearchText | length === 0">No orders found.</p>
+    </div>
+
+    <script>
+        const app = angular.module('ecommerceApp', []);
+
+        // Service for Total Price Calculation
+        app.service('PriceService', function() {
+            this.calculateTotalPrice = function(orders) {
+                return orders.reduce((total, order) => total + order.price, 0);
+            };
+        });
+
+        // Factory for Order Management
+        app.factory('OrderFactory', ['$http', function($http) {
+            let orders = [];
+
+            const fetchOrders = function() {
+                return $http.get('http://localhost:5000/orders').then(response => {
+                    orders = response.data;
+                    return orders;
+                });
+            };
+
+            const addOrder = function(order) {
+                return $http.post('http://localhost:5000/orders', order).then(response => {
+                    orders.push(response.data);
+                    return response.data;
+                });
+            };
+
+            const deleteOrder = function(orderId) {
+                return $http.delete(`http://localhost:5000/orders/${orderId}`).then(response => {
+                    orders = orders.filter(order => order._id !== orderId);
+                    return response.data;
+                });
+            };
+
+            const updateOrder = function(order) {
+                return $http.put(`http://localhost:5000/orders/${order._id}`, order).then(response => {
+                    let index = orders.findIndex(o => o._id === order._id);
+                    if (index !== -1) {
+                        orders[index] = response.data;
+                    }
+                    return response.data;
+                });
+            };
+
+            return {
+                fetchOrders,
+                addOrder,
+                deleteOrder,
+                updateOrder,
+                getOrders: function() { return orders; }
+            };
+        }]);
+
+        // Main Controller
+        app.controller('EcommerceController', ['$scope', '$http', 'PriceService', 'OrderFactory', function ($scope, $http, PriceService, OrderFactory) {
+            // Sample Products
+            $scope.products = [
+                { id: '1', name: 'Laptop', price: 1200, stock: 10 },
+                { id: '2', name: 'Smartphone', price: 800, stock: 15 },
+                { id: '3', name: 'Tablet', price: 600, stock: 20 },
+                { id: '4', name: 'Headphones', price: 150, stock: 50 },
+                { id: '5', name: 'Smartwatch', price: 200, stock: 30 },
+            ];
+
+            // Orders
+            $scope.orders = [];
+
+            // Fetch Orders from Server
+            const fetchOrders = function() {
+                OrderFactory.fetchOrders().then(function(data) {
+                    $scope.orders = data;
+                    updateTotalPrice();  // Update total price after fetching orders
+                });
+            };
+
+            // Update Total Price
+            const updateTotalPrice = function() {
+                $scope.totalPrice = PriceService.calculateTotalPrice($scope.orders);
+            };
+
+            // Order a Product
+            $scope.orderProduct = function(product) {
+                if (product.stock > 0) {
+                    const order = {
+                        productId: product.id,
+                        productName: product.name,
+                        quantity: 1,
+                        price: product.price,
+                    };
+
+                    OrderFactory.addOrder(order).then(function(response) {
+                        alert(response.message);
+                        fetchOrders(); // Refresh orders after new order
+                    });
+
+                    product.stock -= 1; // Reduce stock
+                } else {
+                    alert('Product is out of stock!');
+                }
+            };
+
+            // Delete an Order
+            $scope.deleteOrder = function(orderId) {
+                OrderFactory.deleteOrder(orderId).then(function(response) {
+                    alert(response.message);
+                    fetchOrders(); // Refresh orders after delete
+                });
+            };
+
+            // Update an Order
+            $scope.updateOrder = function(order) {
+                const updatedOrder = {
+                    ...order,
+                    quantity: order.quantity + 1, // Example update: increase quantity
+                };
+
+                OrderFactory.updateOrder(updatedOrder).then(function(response) {
+                    alert(response.message);
+                    fetchOrders(); // Refresh orders after update
+                });
+            };
+
+            // Initialize
+            fetchOrders(); // Initial fetch of orders
+        }]);
+    </script>
+</body>
+</html>
+
+.....................................
+
+lib.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="lib.xsl"?>
+<library xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="lib.xsd">
+
+    <book>
+        <title>To Kill a Mockingbird</title>
+        <author>Harper Lee</author>
+        <genre>Fiction</genre>
+        <published>1960</published>
+        <price>18.99</price>
+    </book>
+    <book>
+        <title>1984</title>
+        <author>George Orwell</author>
+        <genre>Dystopian</genre>
+        <published>1949</published>
+        <price>15.99</price>
+    </book>
+    <book>
+        <title>The Great Gatsby</title>
+        <author>F. Scott Fitzgerald</author>
+        <genre>Classic</genre>
+        <published>1925</published>
+        <price>10.99</price>
+    </book>
+    <book>
+        <title>Pride and Prejudice</title>
+        <author>Jane Austen</author>
+        <genre>Romance</genre>
+        <published>1813</published>
+        <price>12.99</price>
+    </book>
+</library>
+
+lib.xsd
+
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+    <xs:element name="library">
+        <xs:complexType>
+        <xs:sequence>
+                <xs:element name="book">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="title" type="xs:string"/>
+                            <xs:element name="author" type="xs:string"/>
+                            <xs:element name="genre" type="xs:string"/>
+                            <xs:element name="published" type="xs:number"/>
+                            <xs:element name="price" type="xs:number"/>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+            </xs:complexType>
+            </xs:element>
+            
+        </xs:schema>
+
+lib.xsl
+
+<?xml version="1.0"?>
+<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="1.0">
+    <xsl:template match="/">
+        <html>
+            <head>
+                <style>
+                    th{
+                        background-color:blue;
+                        color:white;
+                    }
+                    body {
+                        font-family: Arial, sans-serif;
+                        background-color: #f4f4f9;
+                    }
+                    h1 {
+                        color: #4a90e2;
+                    }
+                    table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin: 20px 0;
+                    }
+                    th {
+                        background-color: #5465FF;
+                        color: white;
+                        padding: 10px;
+                    }
+                    td {
+                        text-align: center;
+                        padding: 8px;
+                        border: 1px solid #ddd;
+                    }
+                    tr:nth-child(even) {
+                        background-color: #f9f9f9;
+                    }
+                    tr:hover {
+                        background-color: #d1e7ff;
+                    }
+                </style>
+            </head>
+            <body>
+                <h2>Library details</h2>
+                <table border="1">
+                    <tr>
+                        <th>Title</th>
+                        <th>Author</th>
+                        <th>Genre</th>
+                        <th>published</th>
+                        <th>Price</th>
+                    </tr>
+                    <xsl:for-each select="library/book">
+                        <xsl:sort select="title"/>
+                        <tr>
+                            <td> <xsl:value-of select="title"/></td>
+                            <td> <xsl:value-of select="author"/></td>
+                            <td> <xsl:value-of select="genre"/></td>
+                            <td> <xsl:value-of select="published"/></td>
+                            <td> <xsl:value-of select="price"/></td>
+
+                        </tr>
+                </xsl:for-each>
+                </table>
+            </body>
+        </html>
+</xsl:template>
+</xsl:stylesheet>
+
+...........................
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+    <xs:element name="library">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="user">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="username" type="xs:string"/>
+                            
+                            <!-- Password with restriction -->
+                            <xs:element name="password">
+                                <xs:simpleType>
+                                    <xs:restriction base="xs:string">
+                                        <!-- Minimum length of 8 characters -->
+                                        <xs:minLength value="8"/>
+                                        <!-- Maximum length of 16 characters -->
+                                        <xs:maxLength value="16"/>
+                                        <!-- Password must contain at least one lowercase letter, one uppercase letter, one digit, and one special character -->
+                                        <xs:pattern value=".*[a-z].*"/>
+                                        <xs:pattern value=".*[A-Z].*"/>
+                                        <xs:pattern value=".*[0-9].*"/>
+                                        <xs:pattern value=".*[!@#$%^&*()].*"/>
+                                    </xs:restriction>
+                                </xs:simpleType>
+                            </xs:element>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+</xs:schema>
+
+
+
+
 
 
 
